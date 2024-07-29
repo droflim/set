@@ -1,33 +1,61 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
+// Usa el plugin de stealth para evitar ser detectado como un bot
 puppeteer.use(StealthPlugin());
 
 const nicks = [
-  'maria28', 'diego__', 'analinda', 'juan', 'luisa', 'pedro', 'carla', 'josecarma', 'rositaa', 'jorge',
-  'linaCaxonda', 'manuel', 'Sandra', 'alberto', 'SofitaHot', 'oscar', 'carmen', 'raul', 'valeria', 'andres',
-  'Verito', 'marco', 'Naty', 'sebastian', 'isis--', 'martin', 'Paolita', 'felipe', 'camila', 'julian',
-  'ElenisCam', 'ricardo', 'claudis', 'sergio', 'Silvina'
+  'maria', 'diego', 'ana', 'juan', 'luisa', 'pedro', 'carla', 'jose', 'rosa', 'jorge',
+  'lina', 'manuel', 'sandra', 'alberto', 'sofia', 'oscar', 'carmen', 'raul', 'valeria', 'andres',
+  'veronica', 'marco', 'natalia', 'sebastian', 'isabella', 'martin', 'paola', 'felipe', 'camila', 'julian',
+  'elena', 'ricardo', 'claudia', 'sergio', 'silvia', 'javier', 'veronica', 'carlos', 'beatriz', 'felipe',
+  'amanda', 'jorge', 'marta', 'victor', 'natalia', 'gabriel', 'lina', 'juliana', 'angelica', 'diego',
+  'jesus', 'silvana', 'santiago', 'laura', 'manuel', 'adriana', 'gabriela', 'ivan', 'paola', 'diana'
 ];
 
-(async () => {
-  const browser = await puppeteer.launch({ headless: true });
-  const pages = [];
+const MAX_CONCURRENT_PAGES = 5; // Número máximo de páginas en paralelo
 
-  // Abrir una nueva página para cada nick en paralelo
-  for (const nick of nicks) {
-    const page = await browser.newPage();
-    await page.goto(`https://html5-chat.com/chat/48967/65cace86434d3/${nick}`, { waitUntil: 'networkidle2' });
-
-    // Agregar la página a la lista de páginas
-    pages.push(page);
+const openPageWithRetry = async (browser, nick, retries = 3) => {
+  const page = await browser.newPage();
+  let attempt = 0;
+  while (attempt < retries) {
+    try {
+      await page.goto(`https://html5-chat.com/chat/48967/65cace86434d3/${nick}`, {
+        waitUntil: 'networkidle2',
+        timeout: 60000 // Tiempo de espera de 60 segundos
+      });
+      return page;
+    } catch (error) {
+      console.error(`Intento ${attempt + 1} fallido para ${nick}:`, error);
+      attempt++;
+      if (attempt >= retries) {
+        await page.close();
+        throw error;
+      }
+    }
   }
+};
 
-  // Función para mantener la actividad en todas las páginas
+const openPages = async (browser, nicks) => {
+  const pages = [];
+  for (let i = 0; i < nicks.length; i += MAX_CONCURRENT_PAGES) {
+    const batch = nicks.slice(i, i + MAX_CONCURRENT_PAGES);
+    const batchPages = await Promise.all(batch.map(nick => openPageWithRetry(browser, nick)));
+    pages.push(...batchPages);
+  }
+  return pages;
+};
+
+(async () => {
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+  const pages = await openPages(browser, nicks);
+
   const maintainActivity = async () => {
     for (const page of pages) {
       try {
-        // Simular una actividad ligera, como un pequeño desplazamiento
         await page.evaluate(() => {
           window.scrollBy(0, 1); // Simular desplazamiento para mantener la conexión
         });
