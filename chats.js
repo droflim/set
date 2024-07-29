@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+
 puppeteer.use(StealthPlugin());
 
 const nicks = [
@@ -10,8 +11,8 @@ const nicks = [
   'camilo', 'ana-maria', 'jessica', 'mario', 'valentina', 'martinez', 'ana-silvia', 'veronica', 'miguel', 'johana'
 ];
 
-const MAX_RETRIES = 3; // Número máximo de reintentos
-const PAGE_TIMEOUT = 120000; // 120 segundos
+const MAX_RETRIES = 5; // Número máximo de reintentos
+const PAGE_TIMEOUT = 120000; // 120 segundos para cargar cada página
 const BATCH_SIZE = 10; // Número de páginas a abrir simultáneamente
 
 const openPageWithRetry = async (browser, nick, retries = MAX_RETRIES) => {
@@ -23,6 +24,7 @@ const openPageWithRetry = async (browser, nick, retries = MAX_RETRIES) => {
         waitUntil: 'networkidle2',
         timeout: PAGE_TIMEOUT
       });
+      console.log(`Página abierta para ${nick}`);
       return page;
     } catch (error) {
       console.error(`Intento ${attempt + 1} fallido para ${nick}:`, error);
@@ -40,9 +42,13 @@ const openPagesInBatches = async (browser, nicks) => {
   const pages = [];
   for (let i = 0; i < nicks.length; i += BATCH_SIZE) {
     const batch = nicks.slice(i, i + BATCH_SIZE);
-    const batchPages = await Promise.all(batch.map(nick => openPageWithRetry(browser, nick)));
-    pages.push(...batchPages);
-    await new Promise(resolve => setTimeout(resolve, 10000)); // Espera 10 segundos entre lotes
+    try {
+      const batchPages = await Promise.all(batch.map(nick => openPageWithRetry(browser, nick)));
+      pages.push(...batchPages);
+      await new Promise(resolve => setTimeout(resolve, 10000)); // Espera 10 segundos entre lotes
+    } catch (error) {
+      console.error('Error al abrir el lote de páginas:', error);
+    }
   }
   return pages;
 };
@@ -63,25 +69,29 @@ const maintainActivity = async (pages) => {
 };
 
 (async () => {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
+  try {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
 
-  const pages = await openPagesInBatches(browser, nicks);
+    const pages = await openPagesInBatches(browser, nicks);
 
-  console.log('Todos los nicks están ahora conectados.');
+    console.log('Todos los nicks están ahora conectados.');
 
-  // Mantener la actividad en las páginas abiertas
-  maintainActivity(pages);
+    // Mantener la actividad en las páginas abiertas
+    maintainActivity(pages);
 
-  // Mantener el script en ejecución indefinidamente
-  await new Promise(resolve => {}); // Mantener el script en ejecución indefinidamente
+    // Mantener el script en ejecución indefinidamente
+    await new Promise(resolve => {}); // Mantener el script en ejecución indefinidamente
 
-  // Cerrar todas las páginas (esto solo se ejecutará si se termina el script)
-  for (const page of pages) {
-    await page.close();
+    // Cerrar todas las páginas (esto solo se ejecutará si se termina el script)
+    for (const page of pages) {
+      await page.close();
+    }
+
+    await browser.close();
+  } catch (error) {
+    console.error('Error en el proceso principal:', error);
   }
-
-  await browser.close();
 })();
