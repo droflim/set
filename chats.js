@@ -1,10 +1,8 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
-// Usa el plugin de stealth para evitar ser detectado como un bot
 puppeteer.use(StealthPlugin());
 
-// Lista de 50 nicks
 const nicks = [
   'maria', 'diego', 'ana', 'juan', 'luisa', 'pedro', 'carla', 'jose', 'rosa', 'jorge',
   'lina', 'manuel', 'sandra', 'alberto', 'sofia', 'oscar', 'carmen', 'raul', 'valeria', 'andres',
@@ -13,6 +11,30 @@ const nicks = [
   'amanda', 'jorge', 'marta', 'victor', 'natalia', 'gabriel', 'lina', 'juliana', 'angelica', 'diego',
   'jesus', 'silvana', 'santiago', 'laura', 'manuel', 'adriana', 'gabriela', 'ivan', 'paola', 'diana'
 ];
+
+const MAX_RETRIES = 3; // Número máximo de reintentos
+const PAGE_TIMEOUT = 60000; // Tiempo de espera de 60 segundos para cada página
+
+const openPageWithRetry = async (browser, nick, retries = MAX_RETRIES) => {
+  const page = await browser.newPage();
+  let attempt = 0;
+  while (attempt < retries) {
+    try {
+      await page.goto(`https://html5-chat.com/chat/48967/65cace86434d3/${nick}`, {
+        waitUntil: 'networkidle2',
+        timeout: PAGE_TIMEOUT
+      });
+      return page;
+    } catch (error) {
+      console.error(`Intento ${attempt + 1} fallido para ${nick}:`, error);
+      attempt++;
+      if (attempt >= retries) {
+        await page.close();
+        throw error;
+      }
+    }
+  }
+};
 
 (async () => {
   const browser = await puppeteer.launch({
@@ -23,14 +45,14 @@ const nicks = [
 
   // Abrir una nueva página para cada nick en paralelo
   for (const nick of nicks) {
-    const page = await browser.newPage();
-    await page.goto(`https://html5-chat.com/chat/48967/65cace86434d3/${nick}`, { waitUntil: 'networkidle2' });
-
-    // Agregar la página a la lista de páginas
-    pages.push(page);
-
-    // Esperar un breve intervalo antes de abrir la siguiente página
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1 segundo
+    try {
+      const page = await openPageWithRetry(browser, nick);
+      pages.push(page);
+      // Esperar un breve intervalo antes de abrir la siguiente página
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1 segundo
+    } catch (error) {
+      console.error(`No se pudo abrir la página para ${nick}:`, error);
+    }
   }
 
   // Función para mantener la actividad en todas las páginas
