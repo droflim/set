@@ -1,10 +1,13 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-
 puppeteer.use(StealthPlugin());
 
 const nicks = [
-  // Lista de 50 nicks...
+  'maria', 'diego', 'ana', 'juan', 'luisa', 'pedro', 'carla', 'jose', 'rosa', 'jorge',
+  'lina', 'manuel', 'sandra', 'alberto', 'sofia', 'oscar', 'carmen', 'raul', 'valeria', 'andres',
+  'veronica', 'marco', 'natalia', 'sebastian', 'isabella', 'martin', 'paola', 'felipe', 'camila', 'julian',
+  'elena', 'ricardo', 'claudia', 'sergio', 'silvia', 'andrea', 'juanita', 'javier', 'patricia', 'manuel',
+  'camilo', 'ana-maria', 'jessica', 'mario', 'valentina', 'martinez', 'ana-silvia', 'veronica', 'miguel', 'johana'
 ];
 
 const MAX_RETRIES = 3; // Número máximo de reintentos
@@ -44,15 +47,8 @@ const openPagesInBatches = async (browser, nicks) => {
   return pages;
 };
 
-(async () => {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
-  const pages = await openPagesInBatches(browser, nicks);
-
-  // Función para mantener la actividad en todas las páginas
-  const maintainActivity = async () => {
+const maintainActivity = async (pages) => {
+  while (true) {
     for (const page of pages) {
       try {
         await page.evaluate(() => {
@@ -62,12 +58,30 @@ const openPagesInBatches = async (browser, nicks) => {
         console.error('Error al mantener la actividad:', error);
       }
     }
-  };
+    await new Promise(resolve => setTimeout(resolve, 30000)); // Ejecutar cada 30 segundos
+  }
+};
 
-  // Mantener la actividad cada 30 segundos
-  setInterval(maintainActivity, 30000); // Ejecutar cada 30 segundos
+(async () => {
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+
+  const pages = await openPagesInBatches(browser, nicks);
+
+  console.log('Todos los nicks están ahora conectados.');
+
+  // Mantener la actividad en las páginas abiertas
+  maintainActivity(pages);
 
   // Mantener el script en ejecución indefinidamente
-  console.log('Todos los nicks están ahora conectados y la actividad se mantiene.');
   await new Promise(resolve => {}); // Mantener el script en ejecución indefinidamente
+
+  // Cerrar todas las páginas (esto solo se ejecutará si se termina el script)
+  for (const page of pages) {
+    await page.close();
+  }
+
+  await browser.close();
 })();
