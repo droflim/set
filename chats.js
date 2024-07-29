@@ -16,9 +16,9 @@ const MAX_RETRIES = 3; // Número máximo de reintentos
 const PAGE_TIMEOUT = 60000; // Tiempo de espera de 60 segundos para cada página
 
 const openPageWithRetry = async (browser, nick, retries = MAX_RETRIES) => {
-  const page = await browser.newPage();
   let attempt = 0;
   while (attempt < retries) {
+    const page = await browser.newPage();
     try {
       await page.goto(`https://html5-chat.com/chat/48967/65cace86434d3/${nick}`, {
         waitUntil: 'networkidle2',
@@ -28,9 +28,9 @@ const openPageWithRetry = async (browser, nick, retries = MAX_RETRIES) => {
     } catch (error) {
       console.error(`Intento ${attempt + 1} fallido para ${nick}:`, error);
       attempt++;
+      await page.close(); // Cerrar la página en caso de error
       if (attempt >= retries) {
-        await page.close();
-        throw error;
+        throw error; // Lanzar el error si se agotaron los reintentos
       }
     }
   }
