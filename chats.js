@@ -80,4 +80,15 @@ const maintainActivity = async (pages) => {
 
     const pages = await openPagesInBatches(browser, nicks);
 
-    console.log('Todos
+    console.log('Todos los nicks están ahora conectados.');
+
+    // Mantener la actividad en las páginas abiertas
+    maintainActivity(pages);
+
+    // Mantener el script en ejecución indefinidamente
+    await new Promise(resolve => {}); // Mantener el script en ejecución indefinidamente
+
+  } catch (error) {
+    console.error('Error en el proceso principal:', error);
+  }
+})();
