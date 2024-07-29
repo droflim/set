@@ -4,16 +4,12 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
 const nicks = [
-  'maria', 'diego', 'ana', 'juan', 'luisa', 'pedro', 'carla', 'jose', 'rosa', 'jorge',
-  'lina', 'manuel', 'sandra', 'alberto', 'sofia', 'oscar', 'carmen', 'raul', 'valeria', 'andres',
-  'veronica', 'marco', 'natalia', 'sebastian', 'isabella', 'martin', 'paola', 'felipe', 'camila', 'julian',
-  'elena', 'ricardo', 'claudia', 'sergio', 'silvia', 'javier', 'veronica', 'carlos', 'beatriz', 'felipe',
-  'amanda', 'jorge', 'marta', 'victor', 'natalia', 'gabriel', 'lina', 'juliana', 'angelica', 'diego',
-  'jesus', 'silvana', 'santiago', 'laura', 'manuel', 'adriana', 'gabriela', 'ivan', 'paola', 'diana'
+  // Lista de 50 nicks...
 ];
 
 const MAX_RETRIES = 3; // Número máximo de reintentos
-const PAGE_TIMEOUT = 60000; // Tiempo de espera de 60 segundos para cada página
+const PAGE_TIMEOUT = 120000; // 120 segundos
+const BATCH_SIZE = 10; // Número de páginas a abrir simultáneamente
 
 const openPageWithRetry = async (browser, nick, retries = MAX_RETRIES) => {
   let attempt = 0;
@@ -30,10 +26,22 @@ const openPageWithRetry = async (browser, nick, retries = MAX_RETRIES) => {
       attempt++;
       await page.close(); // Cerrar la página en caso de error
       if (attempt >= retries) {
+        console.error(`No se pudo abrir la página para ${nick} después de ${retries} intentos.`);
         throw error; // Lanzar el error si se agotaron los reintentos
       }
     }
   }
+};
+
+const openPagesInBatches = async (browser, nicks) => {
+  const pages = [];
+  for (let i = 0; i < nicks.length; i += BATCH_SIZE) {
+    const batch = nicks.slice(i, i + BATCH_SIZE);
+    const batchPages = await Promise.all(batch.map(nick => openPageWithRetry(browser, nick)));
+    pages.push(...batchPages);
+    await new Promise(resolve => setTimeout(resolve, 10000)); // Espera 10 segundos entre lotes
+  }
+  return pages;
 };
 
 (async () => {
@@ -41,19 +49,7 @@ const openPageWithRetry = async (browser, nick, retries = MAX_RETRIES) => {
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
-  const pages = [];
-
-  // Abrir una nueva página para cada nick en paralelo
-  for (const nick of nicks) {
-    try {
-      const page = await openPageWithRetry(browser, nick);
-      pages.push(page);
-      // Esperar un breve intervalo antes de abrir la siguiente página
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1 segundo
-    } catch (error) {
-      console.error(`No se pudo abrir la página para ${nick}:`, error);
-    }
-  }
+  const pages = await openPagesInBatches(browser, nicks);
 
   // Función para mantener la actividad en todas las páginas
   const maintainActivity = async () => {
@@ -74,6 +70,4 @@ const openPageWithRetry = async (browser, nick, retries = MAX_RETRIES) => {
   // Mantener el script en ejecución indefinidamente
   console.log('Todos los nicks están ahora conectados y la actividad se mantiene.');
   await new Promise(resolve => {}); // Mantener el script en ejecución indefinidamente
-
-  // Nota: Este código no llegará a ejecutar la parte de cierre ya que el script no terminará
 })();
