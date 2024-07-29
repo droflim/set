@@ -11,12 +11,11 @@ const nicks = [
   'camilo', 'ana-maria', 'jessica', 'mario', 'valentina', 'martinez', 'ana-silvia', 'veronica', 'miguel', 'johana'
 ];
 
-const MAX_RETRIES = 3; // Número máximo de reintentos por nick
-const PAGE_TIMEOUT = 60000; // 60 segundos para cargar cada página
-const BATCH_SIZE = 10; // Número de páginas a abrir simultáneamente
-const RETRY_DELAY = 5000; // Retraso de 5 segundos entre reintentos
+const PAGE_TIMEOUT = 120000; // 2 minutos para cargar cada página
+const BATCH_SIZE = 5; // Número de páginas a abrir simultáneamente
+const RETRY_DELAY = 10000; // Retraso de 10 segundos entre reintentos
 
-const openPageWithRetry = async (browser, nick, retries = MAX_RETRIES) => {
+const openPageWithRetry = async (browser, nick, retries = 3) => {
   let attempt = 0;
   while (attempt < retries) {
     const page = await browser.newPage();
@@ -49,7 +48,7 @@ const openPagesInBatches = async (browser, nicks) => {
       const batchPages = await Promise.all(batch.map(nick => openPageWithRetry(browser, nick)));
       pages.push(...batchPages);
       console.log(`Lote de ${batch.length} nicks abierto.`);
-      await new Promise(resolve => setTimeout(resolve, 10000)); // Espera 10 segundos entre lotes
+      await new Promise(resolve => setTimeout(resolve, 30000)); // Espera 30 segundos entre lotes
     } catch (error) {
       console.error('Error al abrir el lote de páginas:', error);
     }
@@ -81,15 +80,4 @@ const maintainActivity = async (pages) => {
 
     const pages = await openPagesInBatches(browser, nicks);
 
-    console.log('Todos los nicks están ahora conectados.');
-
-    // Mantener la actividad en las páginas abiertas
-    maintainActivity(pages);
-
-    // Mantener el script en ejecución indefinidamente
-    await new Promise(resolve => {}); // Mantener el script en ejecución indefinidamente
-
-  } catch (error) {
-    console.error('Error en el proceso principal:', error);
-  }
-})();
+    console.log('Todos
