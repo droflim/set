@@ -11,9 +11,10 @@ const nicks = [
   'camilo', 'ana-maria', 'jessica', 'mario', 'valentina', 'martinez', 'ana-silvia', 'veronica', 'miguel', 'johana'
 ];
 
-const MAX_RETRIES = 5; // Número máximo de reintentos
-const PAGE_TIMEOUT = 120000; // 120 segundos para cargar cada página
+const MAX_RETRIES = 3; // Número máximo de reintentos por nick
+const PAGE_TIMEOUT = 60000; // 60 segundos para cargar cada página
 const BATCH_SIZE = 10; // Número de páginas a abrir simultáneamente
+const RETRY_DELAY = 5000; // Retraso de 5 segundos entre reintentos
 
 const openPageWithRetry = async (browser, nick, retries = MAX_RETRIES) => {
   let attempt = 0;
@@ -30,9 +31,11 @@ const openPageWithRetry = async (browser, nick, retries = MAX_RETRIES) => {
       console.error(`Intento ${attempt + 1} fallido para ${nick}:`, error);
       attempt++;
       await page.close(); // Cerrar la página en caso de error
-      if (attempt >= retries) {
+      if (attempt < retries) {
+        console.log(`Reintentando en ${RETRY_DELAY / 1000} segundos...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+      } else {
         console.error(`No se pudo abrir la página para ${nick} después de ${retries} intentos.`);
-        throw error; // Lanzar el error si se agotaron los reintentos
       }
     }
   }
@@ -45,6 +48,7 @@ const openPagesInBatches = async (browser, nicks) => {
     try {
       const batchPages = await Promise.all(batch.map(nick => openPageWithRetry(browser, nick)));
       pages.push(...batchPages);
+      console.log(`Lote de ${batch.length} nicks abierto.`);
       await new Promise(resolve => setTimeout(resolve, 10000)); // Espera 10 segundos entre lotes
     } catch (error) {
       console.error('Error al abrir el lote de páginas:', error);
@@ -85,12 +89,6 @@ const maintainActivity = async (pages) => {
     // Mantener el script en ejecución indefinidamente
     await new Promise(resolve => {}); // Mantener el script en ejecución indefinidamente
 
-    // Cerrar todas las páginas (esto solo se ejecutará si se termina el script)
-    for (const page of pages) {
-      await page.close();
-    }
-
-    await browser.close();
   } catch (error) {
     console.error('Error en el proceso principal:', error);
   }
