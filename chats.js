@@ -4,16 +4,13 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
 const nicks = [
-  'maria', 'diego', 'ana', 'juan', 'luisa', 'pedro', 'carla', 'jose', 'rosa', 'jorge',
-  'lina', 'manuel', 'sandra', 'alberto', 'sofia', 'oscar', 'carmen', 'raul', 'valeria', 'andres',
-  'veronica', 'marco', 'natalia', 'sebastian', 'isabella', 'martin', 'paola', 'felipe', 'camila', 'julian',
-  'elena', 'ricardo', 'claudia', 'sergio', 'silvia', 'andrea', 'juanita', 'javier', 'patricia', 'manuel',
-  'camilo', 'ana-maria', 'jessica', 'mario', 'valentina', 'martinez', 'ana-silvia', 'veronica', 'miguel', 'johana'
+  // Lista de nicks
 ];
 
 const PAGE_TIMEOUT = 120000; // 2 minutos para cargar cada página
 const BATCH_SIZE = 5; // Número de páginas a abrir simultáneamente
 const RETRY_DELAY = 10000; // Retraso de 10 segundos entre reintentos
+const ACTIVITY_INTERVAL = 30000; // 30 segundos entre actividades
 
 const openPageWithRetry = async (browser, nick, retries = 3) => {
   let attempt = 0;
@@ -58,7 +55,7 @@ const openPagesInBatches = async (browser, nicks) => {
 
 const maintainActivity = async (pages) => {
   while (true) {
-    for (const page of pages) {
+    const tasks = pages.map(async (page) => {
       try {
         await page.evaluate(() => {
           window.scrollBy(0, 1); // Simular desplazamiento para mantener la conexión
@@ -66,8 +63,13 @@ const maintainActivity = async (pages) => {
       } catch (error) {
         console.error('Error al mantener la actividad:', error);
       }
-    }
-    await new Promise(resolve => setTimeout(resolve, 30000)); // Ejecutar cada 30 segundos
+    });
+
+    // Esperar a que todas las tareas de actividad se completen
+    await Promise.all(tasks);
+
+    // Esperar antes de la próxima ronda de actividad
+    await new Promise(resolve => setTimeout(resolve, ACTIVITY_INTERVAL));
   }
 };
 
