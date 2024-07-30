@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const fs = require('fs');
 
 puppeteer.use(StealthPlugin());
 
@@ -16,6 +17,16 @@ const BATCH_SIZE = 5; // Número de páginas a abrir simultáneamente
 const RETRY_DELAY = 10000; // Retraso de 10 segundos entre reintentos
 const ACTIVITY_INTERVAL = 30000; // 30 segundos entre actividades
 
+const captureScreenshot = async (page, nick) => {
+  const screenshotPath = `screenshots/${nick}-${Date.now()}.png`;
+  try {
+    await page.screenshot({ path: screenshotPath });
+    console.log(`Captura de pantalla guardada en ${screenshotPath}`);
+  } catch (error) {
+    console.error('Error al capturar la pantalla:', error.message);
+  }
+};
+
 const openPageWithRetry = async (browser, nick, retries = 3) => {
   let attempt = 0;
   while (attempt < retries) {
@@ -30,7 +41,8 @@ const openPageWithRetry = async (browser, nick, retries = 3) => {
       console.log(`Página abierta para ${nick}`);
       return page;
     } catch (error) {
-      console.error(`Intento ${attempt + 1} fallido para ${nick}:`, error.message);
+      console.error(`Intento ${attempt + 1} fallido para ${nick}: ${error.message}`);
+      await captureScreenshot(page, nick);
       attempt++;
       await page.close(); // Cerrar la página en caso de error
       if (attempt < retries) {
@@ -81,8 +93,13 @@ const maintainActivity = async (pages) => {
 
 (async () => {
   try {
+    // Crear el directorio para capturas de pantalla si no existe
+    if (!fs.existsSync('screenshots')) {
+      fs.mkdirSync('screenshots');
+    }
+
     const browser = await puppeteer.launch({
-      headless: false, // Ejecutar en modo visible para depuración
+      headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
